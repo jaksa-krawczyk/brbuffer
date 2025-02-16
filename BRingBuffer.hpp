@@ -31,6 +31,7 @@
 #define __BRINGBUFFER_HPP
 
 #include <cstddef>
+#include <cstdint>
 #include <atomic>
 #include <new>
 
