@@ -13,7 +13,7 @@
  *    contributors may be used to endorse or promote products derived from
  *    this software without specific prior written permission.
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS IS”
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
  * ARE DISCLAIMED.IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
@@ -54,15 +54,18 @@ private:
     static constexpr std::uint64_t WRAP_COUNT_INCR = 0x0000000100000000;
     static constexpr std::uint64_t WRAP_COUNT_MASK = 0xFFFFFFFF00000000;
     static constexpr std::uint64_t INDEX_MASK = 0x00000000FFFFFFFF;
+    static constexpr std::uint32_t MAX_BACKOFF = 1 << 6;
 
 public:
     void* reserve(const std::uint32_t dataSize)
     {
         std::uint64_t currentWriteHead, currentReadHead, newWriteHead;
         std::uint32_t freeId, readId;
+
+        std::uint32_t backoffCount = 1;
         currentWriteHead = writeHead.load(std::memory_order_relaxed);
 
-        do
+        while (true)
         {
             newWriteHead = currentWriteHead;
             currentReadHead = readHead.load(std::memory_order_acquire);
@@ -81,7 +84,17 @@ public:
             }
             ++newWriteHead;
 
-        } while (!writeHead.compare_exchange_strong(currentWriteHead, newWriteHead, std::memory_order_relaxed, std::memory_order_relaxed));
+            if (writeHead.compare_exchange_strong(currentWriteHead, newWriteHead, std::memory_order_relaxed, std::memory_order_relaxed))
+            {
+                break;
+            }
+
+            while (backoffCount--)
+            {
+                asm volatile("pause");
+            }
+            backoffCount = backoffCount < MAX_BACKOFF ? backoffCount << 1 : MAX_BACKOFF;
+        }
 
         data[freeId].size = dataSize;
         return &data[freeId].payload;
