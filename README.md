@@ -24,5 +24,19 @@ Lock free ring buffer that stores data in buckets of constant size. It supports 
 For the most optimistic case there are two atomic loads, one CAS operation and one atomic store for a producer.
 
 There is always one atomic load and two atomic stores for the consumer.
-## TO DO
-Performance and stability tests.
+## Tests
+Added stability test that checks the integrity of the data put into buffer and two performance tests, one for throughput and one for CPU cycles. For performance tests p-states, c-states and SMT were disabled. I tested it on my laptop with AMD Ryzen™ 7 7735U.
+
+Consecutive calls to rdpmc() are very stable and take 27 cycles:
+<img src="images/rdpmc.png" title="consecutive rdpmc calls">
+
+For 1 producer 1 consumer scenario:
+<img src="images/cycles.png" title="1p1c">
+<img src="images/cycles_zoom.png" title="1p1c zoomed">
+
+The throughput on my machine is around 55 milions per second:
+<br />
+<img src="images/smt_off.png" title="throughput smt off">
+
+Throughput is higher for 1 producer 1 consumer case with SMT ON where they run on the same physical core:
+<img src="images/smt_on.png" title="throughput smt on">
